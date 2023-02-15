@@ -18,16 +18,19 @@ var sigChan = make(chan os.Signal, 1)
 func main() {
 
 	var (
-		host        = flag.String("host", "localhost", "postgres host")
-		port        = flag.Int("port", 5432, "postgres port")
-		user        = flag.String("user", "postgres", "postgres user")
-		password    = flag.String("password", "postgres", "postgres password")
-		dbname      = flag.String("dbname", "mydatabase", "postgres db name")
-		tableName   = flag.String("table", "items", "db table name")
-		fieldName1  = flag.String("fromfield", "transactional", "field to get the value from")
-		fieldName2  = flag.String("tofield", "shipping", "field to set (and overwrite) the value of")
-		batchSize   = flag.Int("batchsize", 100, "rows at a time, per betch")
+		host     = flag.String("host", "127.0.0.1", "postgres host")
+		port     = flag.Int("port", 5432, "postgres port")
+		user     = flag.String("user", "userGoesHere", "postgres user")
+		password = flag.String("password", "passwordGoesHere", "postgres password")
+		dbname   = flag.String("dbname", "dbNameGoesHere", "postgres db name")
+
+		tableName   = flag.String("table", "tableNameGoesHere", "db table name")
 		idFieldName = flag.String("id", "id", "id field name")
+
+		fieldName1 = flag.String("src", "sourceFieldGoesHere", "field to get the value from")
+		fieldName2 = flag.String("dst", "destinationFieldGoesHere", "field to set (and overwrite) the value of")
+
+		batchSize = flag.Int("batchsize", 100, "rows at a time, per betch")
 	)
 
 	flag.Parse()
@@ -75,7 +78,7 @@ func main() {
 
 	// Get the total number of rows in the table
 	var total int
-	err = db.QueryRow("SELECT COUNT(*) FROM $1", *tableName).Scan(&total)
+	err = db.QueryRow("SELECT COUNT(*) FROM " + *tableName).Scan(&total)
 	if err != nil {
 		log.Fatalf("Error getting the total number of rows: %v", err)
 	}
@@ -100,13 +103,13 @@ func main() {
 
 		// Copy the data in batches
 		for _, id := range ids {
-			err = db.QueryRow("UPDATE mytable SET $1 = $2 WHERE $3 = $4", *fieldName2, *fieldName1, *idFieldName, id).Scan()
+			err = db.QueryRow("UPDATE $1 SET $2 = $3 WHERE $4 = $5", *tableName, *fieldName2, *fieldName1, *idFieldName, id).Scan()
 			if err != nil {
 				log.Fatalf("Error updating the table: %v", err)
 			}
 
 			// Write the last processed position to the file
-			file, err := os.OpenFile(fileName, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+			file, err := os.OpenFile(fileName, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				log.Fatalf("Error opening file: %v", err)
 			}
