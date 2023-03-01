@@ -16,7 +16,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const fileName = "index.txt"
+// Processed ID numbers are recorded to this file
+const fileName = "progress.txt"
 
 var sigChan = make(chan os.Signal, 1)
 
@@ -65,7 +66,7 @@ func main() {
 	}
 
 	// Get the total number of rows in the table
-	var total int
+	var total int64
 	err = db.QueryRow("SELECT COUNT(" + *colName1 + ") FROM " + *tableName).Scan(&total)
 	if err != nil {
 		log.Fatalf("Error getting the total number of rows: %v", err)
@@ -73,9 +74,9 @@ func main() {
 
 	var file *os.File
 	var writer *bufio.Writer
-	processedMap := make(map[int]bool, total)
+	processedMap := make(map[int64]bool, total)
 
-	// Read all the processed indices from index.txt, into processedMap
+	// Read all the processed indices from progress.txt, into processedMap
 	data, err := os.ReadFile(fileName)
 	if err != nil {
 		file, err = os.Create(fileName)
@@ -97,7 +98,7 @@ func main() {
 			if trimmedLine == "" {
 				continue
 			}
-			processedIndex, err := strconv.Atoi(trimmedLine)
+			processedIndex, err := strconv.ParseInt(trimmedLine, 10, 64)
 			if err != nil {
 				log.Fatalf("This line in %s does not appear to be a number: %s", fileName, trimmedLine)
 			}
@@ -114,14 +115,13 @@ func main() {
 	}
 	defer rows.Close()
 
-	// Scan results into int slice
-	var tableIDs []int
+	// Scan results into int64 slice
+	var tableIDs []int64
 	for rows.Next() {
-		var rowID int
+		var rowID int64
 		if err := rows.Scan(&rowID); err != nil {
 			log.Fatalf("Error reading row ID: %v", err)
 		}
-		fmt.Printf("Found ID %d\n", rowID)
 		tableIDs = append(tableIDs, rowID)
 	}
 	// Check for errors during iteration
@@ -130,7 +130,6 @@ func main() {
 	}
 
 	// Output an informative message
-	//total = len(tableIDs)
 	fmt.Printf("Copying data from %s to %s, for %d rows.\n", *colName1, *colName2, total)
 
 	// Create the column that is copied to, if it's missing
@@ -141,16 +140,17 @@ func main() {
 		}
 	}
 
-	modifiedCounter := 0
+	modifiedCounter := uint64(0)
 	for progressIndex, rowID := range tableIDs {
-		fmt.Printf("%d / %d: ", progressIndex, total)
+		percentage := (float64(progressIndex+1) / float64(total)) * 100.0
+		fmt.Printf("[%6.1f%%] ", percentage)
 		if _, ok := processedMap[rowID]; ok {
 			fmt.Printf("Already processed ID %d, skipping.\n", rowID)
 			continue
 		}
 
 		query := fmt.Sprintf("UPDATE %s SET %s = %s WHERE %s = %d;", *tableName, *colName2, *colName1, *colNameID, rowID)
-		fmt.Println(query)
+		fmt.Print(query)
 		_, err = db.Exec(query)
 		if err != nil {
 			log.Fatalf("Error updating the table: %v", err)
@@ -158,13 +158,12 @@ func main() {
 		// Write the last processed ID to file
 		fmt.Fprintf(writer, "%d\n", rowID)
 		writer.Flush()
-		// Also store it in memory
-		//processedMap[rowID] = true
-		// And count it as modified
+		// Count it as modified
 		modifiedCounter++
-		// And announce it
-		fmt.Printf("Done with ID %d\n", rowID)
+		// And mark it as complete
+		fmt.Println(" DONE")
 	}
 
-	fmt.Printf("\nData copy completed successfully. Updated %d rows.\n", modifiedCounter)
+	fileEntries := modifiedCounter + uint64(len(processedMap))
+	fmt.Printf("\nData copy completed successfully. Updated %d rows. %s has %d entries.\n", modifiedCounter, fileName, fileEntries)
 }
