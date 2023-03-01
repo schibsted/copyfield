@@ -85,7 +85,7 @@ func main() {
 		defer file.Close()
 		writer = bufio.NewWriter(file)
 	} else {
-		file, err = os.Open(fileName)
+		file, err = os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			log.Fatalf("Error opening file for writing: %v", err)
 		}
