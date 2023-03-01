@@ -37,6 +37,8 @@ func main() {
 		colName2 = flag.String("dst", "destinationFieldGoesHere", "table column to set (and overwrite) the value of")
 
 		newType = flag.String("newcol", "", "type of the new column, like BOOLEAN DEFAULT FALSE NOT NULL")
+
+		//batchSize = flag.Int("batch", 1, "the number of SQL statements that should be batched into a transaction")
 	)
 
 	flag.Parse()
