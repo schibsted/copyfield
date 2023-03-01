@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -8,10 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	_ "github.com/lib/pq"
 )
+
+const fileName = "index.txt"
 
 var sigChan = make(chan os.Signal, 1)
 
@@ -24,13 +29,13 @@ func main() {
 		password = flag.String("password", "passwordGoesHere", "postgres password")
 		dbname   = flag.String("dbname", "dbNameGoesHere", "postgres db name")
 
-		tableName   = flag.String("table", "tableNameGoesHere", "db table name")
-		idFieldName = flag.String("id", "id", "id field name")
+		tableName = flag.String("table", "tableNameGoesHere", "db table name")
+		colNameID = flag.String("id", "id", "ID column name")
 
-		fieldName1 = flag.String("src", "sourceFieldGoesHere", "field to get the value from")
-		fieldName2 = flag.String("dst", "destinationFieldGoesHere", "field to set (and overwrite) the value of")
+		colName1 = flag.String("src", "sourceFieldGoesHere", "table column to get the value from")
+		colName2 = flag.String("dst", "destinationFieldGoesHere", "table column to set (and overwrite) the value of")
 
-		batchSize = flag.Int("batchsize", 100, "rows at a time, per betch")
+		newType = flag.String("newcol", "", "type of the new column, like BOOLEAN DEFAULT FALSE NOT NULL")
 	)
 
 	flag.Parse()
@@ -59,73 +64,107 @@ func main() {
 		log.Fatalf("Error connecting to the database: %v", err)
 	}
 
-	var (
-		lastProcessed int
-		fileName      = "last_processed.txt"
-	)
-
-	// Read the last processed position from the file
-	file, err := os.Open(fileName)
-	if err == nil {
-		defer file.Close()
-		_, err = fmt.Fscanf(file, "%d", &lastProcessed)
-		if err != nil {
-			log.Fatalf("Error reading last processed position: %v", err)
-		}
-	} else if !os.IsNotExist(err) {
-		log.Fatalf("Error opening file: %v", err)
-	}
-
 	// Get the total number of rows in the table
 	var total int
-	err = db.QueryRow("SELECT COUNT(*) FROM " + *tableName).Scan(&total)
+	err = db.QueryRow("SELECT COUNT(" + *colName1 + ") FROM " + *tableName).Scan(&total)
 	if err != nil {
 		log.Fatalf("Error getting the total number of rows: %v", err)
 	}
 
-	fmt.Printf("Copying data from %s to %s, starting from position %d\n", *fieldName1, *fieldName2, lastProcessed+1)
+	var file *os.File
+	var writer *bufio.Writer
+	processedMap := make(map[int]bool, total)
 
-	// Copy the data from field1 to field2 in batches
-	start := lastProcessed + 1
-	for start <= total {
-		end := start + *batchSize - 1
-		if end > total {
-			end = total
+	// Read all the processed indices from index.txt, into processedMap
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		file, err = os.Create(fileName)
+		if err != nil {
+			log.Fatalf("Error creating file: %v", err)
 		}
-
-		// Create a slice to store the IDs for the current batch
-		ids := make([]int, end-start+1)
-
-		// Fill the slice with the IDs
-		for i := start; i <= end; i++ {
-			ids[i-start] = i
+		defer file.Close()
+		writer = bufio.NewWriter(file)
+	} else {
+		file, err = os.Open(fileName)
+		if err != nil {
+			log.Fatalf("Error opening file for writing: %v", err)
 		}
-
-		// Copy the data in batches
-		for _, id := range ids {
-			err = db.QueryRow("UPDATE $1 SET $2 = $3 WHERE $4 = $5", *tableName, *fieldName2, *fieldName1, *idFieldName, id).Scan()
-			if err != nil {
-				log.Fatalf("Error updating the table: %v", err)
+		defer file.Close()
+		writer = bufio.NewWriter(file)
+		byteLines := bytes.Split(data, []byte{'\n'})
+		for _, byteLine := range byteLines {
+			trimmedLine := strings.TrimSpace(string(byteLine))
+			if trimmedLine == "" {
+				continue
 			}
-
-			// Write the last processed position to the file
-			file, err := os.OpenFile(fileName, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+			processedIndex, err := strconv.Atoi(trimmedLine)
 			if err != nil {
-				log.Fatalf("Error opening file: %v", err)
+				log.Fatalf("This line in %s does not appear to be a number: %s", fileName, trimmedLine)
 			}
-			defer file.Close()
-
-			_, err = file.WriteString(strconv.Itoa(id))
-			if err != nil {
-				log.Fatalf("Error writing to file: %v", err)
-			}
-
-			// Print a dot to indicate progress
-			fmt.Printf(".")
+			processedMap[processedIndex] = true
 		}
-
-		start = end + 1
 	}
 
-	fmt.Println("\nData copy completed successfully.")
+	// Execute query to get all trade_id values
+	query := fmt.Sprintf("SELECT %s FROM %s", *colNameID, *tableName)
+	fmt.Println(query)
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Fatalf("Error fetching all ID numbers: %v", err)
+	}
+	defer rows.Close()
+
+	// Scan results into int slice
+	var tableIDs []int
+	for rows.Next() {
+		var rowID int
+		if err := rows.Scan(&rowID); err != nil {
+			log.Fatalf("Error reading row ID: %v", err)
+		}
+		fmt.Printf("Found ID %d\n", rowID)
+		tableIDs = append(tableIDs, rowID)
+	}
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		log.Fatalf("Error during iteration: %v", err)
+	}
+
+	// Output an informative message
+	//total = len(tableIDs)
+	fmt.Printf("Copying data from %s to %s, for %d rows.\n", *colName1, *colName2, total)
+
+	// Create the column that is copied to, if it's missing
+	if newType != nil && *newType != "" {
+		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN IF NOT EXISTS %s %s", *tableName, *colName2, *newType))
+		if err != nil {
+			log.Fatalf("Error creating column %s in table %s with type %s: %v", *tableName, *colName2, *newType, err)
+		}
+	}
+
+	modifiedCounter := 0
+	for progressIndex, rowID := range tableIDs {
+		fmt.Printf("%d / %d: ", progressIndex, total)
+		if _, ok := processedMap[rowID]; ok {
+			fmt.Printf("Already processed ID %d, skipping.\n", rowID)
+			continue
+		}
+
+		query := fmt.Sprintf("UPDATE %s SET %s = %s WHERE %s = %d;", *tableName, *colName2, *colName1, *colNameID, rowID)
+		fmt.Println(query)
+		_, err = db.Exec(query)
+		if err != nil {
+			log.Fatalf("Error updating the table: %v", err)
+		}
+		// Write the last processed ID to file
+		fmt.Fprintf(writer, "%d\n", rowID)
+		writer.Flush()
+		// Also store it in memory
+		//processedMap[rowID] = true
+		// And count it as modified
+		modifiedCounter++
+		// And announce it
+		fmt.Printf("Done with ID %d\n", rowID)
+	}
+
+	fmt.Printf("\nData copy completed successfully. Updated %d rows.\n", modifiedCounter)
 }
