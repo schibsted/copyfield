@@ -28,6 +28,8 @@ Examine values:
 
     psql -h localhost -p 5433 --username=feedback_user feedback
 
+For servers that are not running on localhost, adding `-sslmode=1` is most likely needed.
+
 ### Reset the counter and remove a column
 
 Remove the file with the overview of the current progress:
