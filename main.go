@@ -29,6 +29,7 @@ func main() {
 		user     = flag.String("user", "userGoesHere", "postgres user")
 		password = flag.String("password", "passwordGoesHere", "postgres password")
 		dbname   = flag.String("dbname", "dbNameGoesHere", "postgres db name")
+		sslMode  = flag.Bool("sslmode", false, "sslmode: true means \"require\", false means \"disable\"")
 
 		tableName = flag.String("table", "tableNameGoesHere", "db table name")
 		colNameID = flag.String("id", "id", "ID column name")
@@ -50,10 +51,15 @@ func main() {
 		os.Exit(0)
 	}()
 
+	sslModeString := "disable"
+	if *sslMode {
+		sslModeString = "require"
+	}
+
 	// Connect to the database
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		*host, *port, *user, *password, *dbname)
+		"password=%s dbname=%s sslmode=%s",
+		*host, *port, *user, *password, *dbname, sslModeString)
 
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
