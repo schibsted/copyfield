@@ -57,10 +57,9 @@ func main() {
 	}
 
 	// Connect to the database
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=%s",
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		*host, *port, *user, *password, *dbname, sslModeString)
-
+	fmt.Println(psqlInfo)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.Fatalf("Error connecting to the database: %v", err)
@@ -151,7 +150,7 @@ func main() {
 	modifiedCounter := uint64(0)
 	for progressIndex, rowID := range tableIDs {
 		percentage := (float64(progressIndex+1) / float64(total)) * 100.0
-		fmt.Printf("[%6.1f%%] ", percentage)
+		fmt.Printf("[%6.1f%% (%d/%d)] ", percentage, progressIndex+1, total)
 		if _, ok := processedMap[rowID]; ok {
 			fmt.Printf("Already processed ID %d, skipping.\n", rowID)
 			continue
