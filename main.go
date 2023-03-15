@@ -198,7 +198,7 @@ func main() {
 
 		// Queue up a query for this row
 		queryBatch[rowID] = fmt.Sprintf("UPDATE %s SET %s = %s WHERE %s = %d;", *tableName, *colName2, *colName1, *colNameID, rowID)
-		fmt.Printf("Queued %d", rowID)
+		fmt.Printf("Queued %d\n", rowID)
 		// Total counter, used for batching
 		counter++
 
