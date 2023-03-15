@@ -4,3 +4,4 @@ include.txt
 progress.txt
 produpdate.sh
 devupdate.sh
+localupdate.sh
