@@ -110,7 +110,7 @@ func main() {
 
 	// Get the total number of rows in the table
 	var total int64
-	err = db.QueryRow("SELECT COUNT(" + *colName1 + ") FROM " + *tableName).Scan(&total)
+	err = db.QueryRow("SELECT COUNT(" + *colName1 + ") FROM " + *tableName + " WHERE " + *colName1 + " <> " + *colName2).Scan(&total)
 	if err != nil {
 		log.Fatalf("Error getting the total number of rows: %v", err)
 	}
@@ -150,7 +150,7 @@ func main() {
 	}
 
 	// Execute query to get all trade_id values that does not have the correct value set
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s != %s", *colNameID, *tableName, *colName1, *colName2)
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s <> %s", *colNameID, *tableName, *colName1, *colName2)
 	fmt.Println(query)
 	rows, err := db.Query(query)
 	if err != nil {
