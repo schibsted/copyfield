@@ -1,3 +1,4 @@
+// package main contains the processBatch function and the main function for this little utility
 package main
 
 import (
@@ -19,7 +20,42 @@ import (
 // Processed ID numbers are recorded to this file
 const fileName = "progress.txt"
 
+// Signal channel for handling ctrl-c
 var sigChan = make(chan os.Signal, 1)
+
+// WriterFlusher is an interface for a type that can both write and flush (like a file writer)
+type WriterFlusher interface {
+	Write(p []byte) (n int, err error)
+	Flush() error
+}
+
+// processBatch generates and executes a semicolon-separated string of SQL queries
+func processBatch(db *sql.DB, queries strings.Builder, queryBatch map[int64]string, modifiedCounter *uint64, lenQueryBatch uint64, wf WriterFlusher) {
+	// Commit the current batch, and save the processed IDs
+	queries.Reset()
+	for _, query := range queryBatch {
+		queries.WriteString(query)
+	}
+	if lenQueryBatch == 1 {
+		fmt.Print(queryBatch[0])
+	} else {
+		fmt.Printf("%s (and %d more)", queryBatch[0], lenQueryBatch-1)
+	}
+	if _, err := db.Exec(queries.String()); err != nil {
+		log.Fatalf("Error updating the table: %v", err)
+	}
+	// Write the last processed IDs to file
+	for rowID := range queryBatch {
+		fmt.Fprintf(wf, "%d\n", rowID)
+	}
+	wf.Flush()
+	// Count it as modified
+	*modifiedCounter += lenQueryBatch
+	// Clear the queryBatch map
+	for rowID := range queryBatch {
+		delete(queryBatch, rowID)
+	}
+}
 
 func main() {
 
@@ -39,7 +75,7 @@ func main() {
 
 		newType = flag.String("newcol", "", "type of the new column, like BOOLEAN DEFAULT FALSE NOT NULL")
 
-		//batchSize = flag.Int("batch", 1, "the number of SQL statements that should be batched into a transaction")
+		batchSize = flag.Int("batch", 1, "the number of SQL statements that should be batched into a transaction")
 	)
 
 	flag.Parse()
@@ -113,8 +149,8 @@ func main() {
 		}
 	}
 
-	// Execute query to get all trade_id values
-	query := fmt.Sprintf("SELECT %s FROM %s", *colNameID, *tableName)
+	// Execute query to get all trade_id values that does not have the correct value set
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE %s != %s", *colNameID, *tableName, *colName1, *colName2)
 	fmt.Println(query)
 	rows, err := db.Query(query)
 	if err != nil {
@@ -148,6 +184,10 @@ func main() {
 	}
 
 	modifiedCounter := uint64(0)
+	counter := uint64(0)
+	queryBatch := make(map[int64]string, *batchSize)
+	var queries strings.Builder
+
 	for progressIndex, rowID := range tableIDs {
 		percentage := (float64(progressIndex+1) / float64(total)) * 100.0
 		fmt.Printf("[%6.1f%% (%d/%d)] ", percentage, progressIndex+1, total)
@@ -156,19 +196,19 @@ func main() {
 			continue
 		}
 
-		query := fmt.Sprintf("UPDATE %s SET %s = %s WHERE %s = %d;", *tableName, *colName2, *colName1, *colNameID, rowID)
-		fmt.Print(query)
-		_, err = db.Exec(query)
-		if err != nil {
-			log.Fatalf("Error updating the table: %v", err)
+		// Queue up a query for this row
+		queryBatch[rowID] = fmt.Sprintf("UPDATE %s SET %s = %s WHERE %s = %d;", *tableName, *colName2, *colName1, *colNameID, rowID)
+		fmt.Printf("Queued %d\n", rowID)
+		// Total counter, used for batching
+		counter++
+
+		if lenQueryBatch := uint64(len(queryBatch)); counter%uint64(*batchSize) == 0 && lenQueryBatch > 0 {
+			// Process this batch of queries
+			processBatch(db, queries, queryBatch, &modifiedCounter, lenQueryBatch, writer)
+			// Output an indication that these row IDs has been processed, together with a newline
+			fmt.Println(" DONE")
 		}
-		// Write the last processed ID to file
-		fmt.Fprintf(writer, "%d\n", rowID)
-		writer.Flush()
-		// Count it as modified
-		modifiedCounter++
-		// And mark it as complete
-		fmt.Println(" DONE")
+
 	}
 
 	fileEntries := modifiedCounter + uint64(len(processedMap))
