@@ -57,7 +57,7 @@ The progress is stored as a list of table indices in `index.txt`. The file is wr
 ```
 ################################################################################
 #                                                                              #
-# copyfield                                                                    #
+# Copyfield                                                                    #
 #                                                                              #
 # Copyright 2023 Schibsted                                                     #
 #                                                                              #
