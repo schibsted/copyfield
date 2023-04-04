@@ -1,4 +1,4 @@
-module github.com/xyproto/copyfield
+module github.schibsted.io/alexander-fet-rodseth/copyfield
 
 go 1.20
 
