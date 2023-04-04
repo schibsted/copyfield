@@ -36,9 +36,9 @@ Remove the file with the overview of the current progress:
 
     rm progress.txt
 
-In `psql`:
+Also drop the column, if needed (replace <table> and <col> with your own):
 
-    ALTER TABLE trade DROP COLUMN shipping;
+    ALTER TABLE <table> DROP COLUMN <column>;
 
 ### Progress
 
