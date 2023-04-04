@@ -46,5 +46,26 @@ The progress is stored as a list of table indices in `index.txt`. The file is wr
 
 ### General info
 
-* License: Apache 2
+* License: [Apache 2](LICENSE)
 * Version: 1.0.0
+
+### The contents of the NOTICE file
+
+(Required, per company policy).
+
+```
+################################################################################
+#                                                                              #
+# copyfield                                                                    #
+#                                                                              #
+# Copyright 2023 Schibsted                                                     #
+#                                                                              #
+# Unless required by applicable law or agreed to in writing, software          #
+# distributed under the License is distributed on an "AS IS" BASIS,            #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.     #
+#                                                                              #
+# See the License for the specific language governing permissions and          #
+# limitations under the License.                                               #
+#                                                                              #
+################################################################################
+```
