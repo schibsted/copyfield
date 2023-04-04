@@ -46,6 +46,7 @@ The progress is stored as a list of table indices in `index.txt`. The file is wr
 
 ### General info
 
+* Author: Alexander F. Rødseth
 * License: [Apache 2](LICENSE)
 * Version: 1.0.1
 
