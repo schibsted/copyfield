@@ -1,4 +1,4 @@
-module github.schibsted.io/alexander-fet-rodseth/copyfield
+module github.com/schibsted/copyfield
 
 go 1.20
 
