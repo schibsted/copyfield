@@ -36,9 +36,9 @@ Remove the file with the overview of the current progress:
 
     rm progress.txt
 
-Also drop the column, if needed (replace <table> and <col> with your own):
+Also drop the column, if needed (replace `<table>` and `<col>` with your own):
 
-    ALTER TABLE <table> DROP COLUMN <column>;
+    ALTER TABLE <table> DROP COLUMN <col>;
 
 ### Progress
 
