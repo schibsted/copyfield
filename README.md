@@ -10,7 +10,7 @@ The entire process can be stopped with `ctrl-c` and resumed by running the comma
 
 Requires Go >= 1.17:
 
-    go install github.com/xyproto/copyfield@latest
+    go install github.com//alexander-fet-rodseth/copyfield@latest
 
 ### Example use
 
