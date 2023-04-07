@@ -50,7 +50,7 @@ The progress is stored as a list of table indices in `index.txt`. The file is wr
 * License: [Apache 2](LICENSE)
 * Version: 1.0.1
 
-## The contents of the NOTICE file
+### The contents of the NOTICE file
 
 (Required, per company policy).
 
