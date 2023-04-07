@@ -1,4 +1,4 @@
-# Copyfield
+# Copyfield [![Build](https://github.com/schibsted/copyfield/actions/workflows/build.yml/badge.svg)](https://github.com/schibsted/copyfield/actions/workflows/build.yml)
 
 Copy a value from one field in a table, to another field in the same table, in a PostgreSQL database.
 
