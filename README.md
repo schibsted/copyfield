@@ -1,7 +1,5 @@
 # Copyfield
 
-### Description
-
 Copy a value from one field in a table, to another field in the same table, in a PostgreSQL database.
 
 The entire process can be stopped with `ctrl-c` and resumed by running the command again, since the progress is stored in `progress.txt`.
